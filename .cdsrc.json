@@ -1,0 +1,20 @@
+{
+    "requires": {
+        "db": {
+            "kind": "sqlite",
+            "credentials": {
+                "database": ":memory:"
+            }
+        }
+    },
+    "odata": {
+        "version": "v4"
+    },
+    "log": {
+        "levels": {
+            "cds": "info",
+            "app": "info",
+            "db":  "warn"
+        }
+    }
+}

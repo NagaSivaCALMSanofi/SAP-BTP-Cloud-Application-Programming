@@ -1,0 +1,25 @@
+{
+    "welcomeFile": "/app/index.html",
+    "authenticationMethod": "route",
+    "sessionTimeout": 30,
+    "routes": [
+        {
+            "source":      "^/odata/(.*)$",
+            "destination": "datasphere-capm-backend",
+            "authenticationType": "xsuaa",
+            "csrfProtection": false
+        },
+        {
+            "source":      "^/app/(.*)$",
+            "target":      "/app/$1",
+            "localDir":    "app",
+            "authenticationType": "none"
+        },
+        {
+            "source":      "^/(.*)$",
+            "target":      "/$1",
+            "localDir":    "app",
+            "authenticationType": "none"
+        }
+    ]
+}

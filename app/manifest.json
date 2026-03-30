@@ -1,0 +1,31 @@
+{
+    "_version": "1.58.0",
+    "sap.app": {
+        "id":          "com.datasphere.featureanalytic",
+        "type":        "application",
+        "title":       "Feature Analytic Dashboard",
+        "description": "SAP Datasphere Feature Analytic Model Viewer with Auto-Refresh",
+        "applicationVersion": { "version": "1.0.0" },
+        "dataSources": {
+            "FeatureAnalyticService": {
+                "uri":  "/odata/v4/FeatureAnalyticService/",
+                "type": "OData",
+                "settings": { "odataVersion": "4.0" }
+            }
+        }
+    },
+    "sap.ui": {
+        "technology": "UI5",
+        "deviceTypes": { "desktop": true, "tablet": true, "phone": false }
+    },
+    "sap.ui5": {
+        "dependencies": {
+            "minUI5Version": "1.120.0",
+            "libs": {
+                "sap.m":        {},
+                "sap.ui.table": {},
+                "sap.ui.core":  {}
+            }
+        }
+    }
+}

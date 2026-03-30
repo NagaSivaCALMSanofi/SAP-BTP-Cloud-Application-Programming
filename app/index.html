@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Feature Analytic Dashboard | SAP Datasphere</title>
+
+    <!-- SAP UI5 Bootstrap -->
+    <script
+        id="sap-ui-bootstrap"
+        src="https://ui5.sap.com/1.120.0/resources/sap-ui-core.js"
+        data-sap-ui-theme="sap_horizon"
+        data-sap-ui-libs="sap.m,sap.ui.table,sap.ui.core,sap.f,sap.ui.layout"
+        data-sap-ui-compatVersion="edge"
+        data-sap-ui-async="true">
+    </script>
+
+    <style>
+        body { margin: 0; padding: 0; background: #f5f6f7; }
+
+        .headerBar {
+            background: #0070f2;
+            color: #fff;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .headerBar h1 { margin: 0; font-size: 18px; font-weight: 600; }
+        .headerBar .meta { font-size: 12px; opacity: 0.85; }
+
+        .statusStrip {
+            background: #fff;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 6px 20px;
+            display: flex;
+            gap: 24px;
+            font-size: 12px;
+            color: #555;
+            align-items: center;
+        }
+        .statusStrip .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 11px;
+        }
+        .badge-success  { background: #d4edda; color: #155724; }
+        .badge-warning  { background: #fff3cd; color: #856404; }
+        .badge-error    { background: #f8d7da; color: #721c24; }
+        .badge-pending  { background: #e2e3e5; color: #383d41; }
+
+        .filterBar {
+            background: #fff;
+            padding: 10px 20px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .summaryRow {
+            display: flex;
+            gap: 12px;
+            padding: 12px 20px;
+            flex-wrap: wrap;
+        }
+        .summaryCard {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 12px 20px;
+            min-width: 140px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .summaryCard .value { font-size: 28px; font-weight: 700; color: #0070f2; }
+        .summaryCard .label { font-size: 11px; color: #666; margin-top: 2px; }
+
+        .tableWrap { padding: 0 20px 20px; }
+
+        #countdown { font-weight: 600; color: #0070f2; }
+    </style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────── -->
+<div class="headerBar">
+    <h1>🔷 Feature Analytic Dashboard &nbsp;|&nbsp; SAP Datasphere</h1>
+    <div class="meta">
+        Auto-refresh every 5 minutes &nbsp;|&nbsp;
+        Next refresh in: <span id="countdown">5:00</span>
+    </div>
+</div>
+
+<!-- ── Status Strip ───────────────────────── -->
+<div class="statusStrip">
+    <span>Records: <strong id="recordCount">—</strong></span>
+    <span>Last Refresh: <strong id="lastRefresh">—</strong></span>
+    <span>Sync Status: <span id="syncBadge" class="badge badge-pending">PENDING</span></span>
+    <span style="margin-left:auto;">
+        <button id="btnRefresh"
+            style="background:#0070f2;color:#fff;border:none;padding:5px 14px;border-radius:4px;cursor:pointer;font-size:12px;">
+            ↻ Refresh Now
+        </button>
+        <button id="btnExport"
+            style="background:#fff;color:#0070f2;border:1px solid #0070f2;padding:5px 14px;border-radius:4px;cursor:pointer;font-size:12px;margin-left:6px;">
+            ⬇ Export CSV
+        </button>
+    </span>
+</div>
+
+<!-- ── Summary Cards ──────────────────────── -->
+<div class="summaryRow" id="summaryRow">
+    <div class="summaryCard"><div class="value" id="cTotal">0</div><div class="label">Total Features</div></div>
+    <div class="summaryCard"><div class="value" id="cCreated" style="color:#f39c12;">0</div><div class="label">In Specification</div></div>
+    <div class="summaryCard"><div class="value" id="cInReal" style="color:#e67e22;">0</div><div class="label">In Implementation</div></div>
+    <div class="summaryCard"><div class="value" id="cInTest" style="color:#3498db;">0</div><div class="label">In Testing</div></div>
+    <div class="summaryCard"><div class="value" id="cConfirmed" style="color:#27ae60;">0</div><div class="label">Deployed</div></div>
+    <div class="summaryCard"><div class="value" id="cApproved" style="color:#8e44ad;">0</div><div class="label">Approved</div></div>
+    <div class="summaryCard"><div class="value" id="cTested" style="color:#16a085;">0</div><div class="label">Successfully Tested</div></div>
+</div>
+
+<!-- ── Filter Bar ─────────────────────────── -->
+<div class="filterBar">
+    <input id="searchInput" type="text" placeholder="🔍 Search feature, project, responsible..."
+        style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;width:280px;font-size:13px;" />
+
+    <select id="statusFilter"
+        style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;">
+        <option value="">All Statuses</option>
+        <option value="CREATED">In Specification</option>
+        <option value="IN_REALIZATION">In Implementation</option>
+        <option value="IN_TESTING">In Testing</option>
+        <option value="CONFIRMED">Deployed</option>
+        <option value="SUCCESSFULLY_TESTED">Successfully Tested</option>
+        <option value="APPROVED_FOR_DEPLOYMENT">Approved for Deployment</option>
+        <option value="NOT_PLANNED">Not Planned</option>
+    </select>
+
+    <select id="priorityFilter"
+        style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;">
+        <option value="">All Priorities</option>
+        <option value="Very High">Very High</option>
+        <option value="High">High</option>
+        <option value="Medium">Medium</option>
+        <option value="Low">Low</option>
+    </select>
+
+    <button onclick="clearFilters()"
+        style="padding:6px 12px;border:1px solid #ccc;border-radius:4px;background:#fff;cursor:pointer;font-size:13px;">
+        ✕ Clear
+    </button>
+
+    <span style="margin-left:auto;font-size:12px;color:#888;">
+        Showing: <strong id="showingCount">0</strong> records
+    </span>
+</div>
+
+<!-- ── Data Table ─────────────────────────── -->
+<div class="tableWrap">
+    <table id="dataTable"
+        style="width:100%;border-collapse:collapse;background:#fff;font-size:13px;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+        <thead>
+            <tr style="background:#f0f4ff;border-bottom:2px solid #d0d8f0;">
+                <th style="padding:10px 8px;text-align:left;white-space:nowrap;">Feature ID</th>
+                <th style="padding:10px 8px;text-align:left;">Feature Name</th>
+                <th style="padding:10px 8px;text-align:left;">Project</th>
+                <th style="padding:10px 8px;text-align:left;">Status</th>
+                <th style="padding:10px 8px;text-align:left;">Priority</th>
+                <th style="padding:10px 8px;text-align:left;">Workstream</th>
+                <th style="padding:10px 8px;text-align:left;">Release</th>
+                <th style="padding:10px 8px;text-align:left;">Responsible</th>
+                <th style="padding:10px 8px;text-align:left;">Scope</th>
+                <th style="padding:10px 8px;text-align:left;">Date</th>
+                <th style="padding:10px 8px;text-align:center;">Counter</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody">
+            <tr><td colspan="11" style="text-align:center;padding:40px;color:#999;">
+                Loading data from SAP Datasphere...
+            </td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// Configuration
+// ─────────────────────────────────────────────
+// NOTE: The UI requests data from the CAPM OData service (not Datasphere directly).
+// The CAPM service fetches the full dataset and serves it with proper pagination.
+// The UI uses a large $top to retrieve all cached records in one call.
+const SERVICE_URL      = '/odata/v4/FeatureAnalyticService/Feature_Analytic_Model';
+const REFRESH_INTERVAL = 300; // seconds (5 minutes)
+
+// ─────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────
+let allData      = [];
+let filteredData = [];
+let countdown    = REFRESH_INTERVAL;
+let countdownTimer;
+
+// ─────────────────────────────────────────────
+// Status badge helper
+// ─────────────────────────────────────────────
+const STATUS_STYLE = {
+    'CREATED':                  'background:#e8f4fd;color:#0070f2;',
+    'IN_REALIZATION':           'background:#fff3cd;color:#856404;',
+    'IN_TESTING':               'background:#d1ecf1;color:#0c5460;',
+    'CONFIRMED':                'background:#d4edda;color:#155724;',
+    'SUCCESSFULLY_TESTED':      'background:#c3e6cb;color:#155724;',
+    'APPROVED_FOR_DEPLOYMENT':  'background:#cce5ff;color:#004085;',
+    'NOT_PLANNED':              'background:#f8d7da;color:#721c24;'
+};
+
+const PRIORITY_STYLE = {
+    'Very High': 'color:#c0392b;font-weight:700;',
+    'High':      'color:#e74c3c;font-weight:600;',
+    'Medium':    'color:#f39c12;',
+    'Low':       'color:#27ae60;'
+};
+
+// ─────────────────────────────────────────────
+// Fetch data from CAPM OData service
+// ─────────────────────────────────────────────
+async function loadData(showLoader) {
+    if (showLoader) {
+        document.getElementById('tableBody').innerHTML =
+            '<tr><td colspan="11" style="text-align:center;padding:40px;color:#999;">⏳ Loading...</td></tr>';
+    }
+
+    try {
+        // Request all records from the CAPM service (which handles caching).
+        // $top=50000 is applied here against the CAPM in-memory store — NOT
+        // against the Datasphere API, so this is safe.
+        const url  = `${SERVICE_URL}?$top=50000&$orderby=featureId asc`;
+        const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+
+        const json = await resp.json();
+        allData = json.value || [];
+
+        updateSummaryCards(allData);
+        applyFilters();
+        updateStatusStrip('SUCCESS');
+        resetCountdown();
+
+    } catch (err) {
+        console.error('Load error:', err);
+        updateStatusStrip('FAILED');
+        document.getElementById('tableBody').innerHTML =
+            `<tr><td colspan="11" style="text-align:center;padding:40px;color:#c0392b;">
+                ❌ Failed to load data: ${err.message}
+            </td></tr>`;
+    }
+}
+
+// ─────────────────────────────────────────────
+// Summary cards
+// ─────────────────────────────────────────────
+function updateSummaryCards(data) {
+    document.getElementById('cTotal').textContent     = data.length;
+    document.getElementById('cCreated').textContent   = data.filter(r => r.status === 'CREATED').length;
+    document.getElementById('cInReal').textContent    = data.filter(r => r.status === 'IN_REALIZATION').length;
+    document.getElementById('cInTest').textContent    = data.filter(r => r.status === 'IN_TESTING').length;
+    document.getElementById('cConfirmed').textContent = data.filter(r => r.status === 'CONFIRMED').length;
+    document.getElementById('cApproved').textContent  = data.filter(r => r.status === 'APPROVED_FOR_DEPLOYMENT').length;
+    document.getElementById('cTested').textContent    = data.filter(r => r.status === 'SUCCESSFULLY_TESTED').length;
+}
+
+// ─────────────────────────────────────────────
+// Filter logic
+// ─────────────────────────────────────────────
+function applyFilters() {
+    const search   = document.getElementById('searchInput').value.toLowerCase();
+    const status   = document.getElementById('statusFilter').value;
+    const priority = document.getElementById('priorityFilter').value;
+
+    filteredData = allData.filter(r => {
+        const matchSearch = !search ||
+            (r.featureName  || '').toLowerCase().includes(search) ||
+            (r.featureId    || '').toLowerCase().includes(search) ||
+            (r.projectName  || '').toLowerCase().includes(search) ||
+            (r.responsible  || '').toLowerCase().includes(search) ||
+            (r.workstream   || '').toLowerCase().includes(search);
+
+        const matchStatus   = !status   || r.status   === status;
+        const matchPriority = !priority || r.priority === priority;
+
+        return matchSearch && matchStatus && matchPriority;
+    });
+
+    renderTable(filteredData);
+    document.getElementById('showingCount').textContent = filteredData.length;
+}
+
+function clearFilters() {
+    document.getElementById('searchInput').value    = '';
+    document.getElementById('statusFilter').value   = '';
+    document.getElementById('priorityFilter').value = '';
+    applyFilters();
+}
+
+// ─────────────────────────────────────────────
+// Table rendering
+// ─────────────────────────────────────────────
+function renderTable(data) {
+    const tbody = document.getElementById('tableBody');
+
+    if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:40px;color:#999;">No records found.</td></tr>';
+        return;
+    }
+
+    const rows = data.map((r, i) => {
+        const rowBg   = i % 2 === 0 ? '#fff' : '#f9fbff';
+        const stStyle = STATUS_STYLE[r.status]   || '';
+        const prStyle = PRIORITY_STYLE[r.priority] || '';
+
+        return `<tr style="background:${rowBg};border-bottom:1px solid #eee;">
+            <td style="padding:8px;white-space:nowrap;font-weight:600;color:#0070f2;">${esc(r.featureId)}</td>
+            <td style="padding:8px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.featureName)}">${esc(r.featureName)}</td>
+            <td style="padding:8px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.projectName)}">${esc(r.projectName)}</td>
+            <td style="padding:8px;">
+                <span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;${stStyle}">${esc(r.statusText)}</span>
+            </td>
+            <td style="padding:8px;${prStyle}">${esc(r.priority)}</td>
+            <td style="padding:8px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.workstream)}</td>
+            <td style="padding:8px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.release || '—')}</td>
+            <td style="padding:8px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.responsible || '—')}</td>
+            <td style="padding:8px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.scopeName || '')}">${esc(r.scopeName || '—')}</td>
+            <td style="padding:8px;white-space:nowrap;">${esc(r.date)}</td>
+            <td style="padding:8px;text-align:center;">${r.counter ?? 0}</td>
+        </tr>`;
+    });
+
+    tbody.innerHTML = rows.join('');
+}
+
+// HTML escape helper
+function esc(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+// ─────────────────────────────────────────────
+// Status strip update
+// ─────────────────────────────────────────────
+function updateStatusStrip(status) {
+    document.getElementById('recordCount').textContent = allData.length;
+    document.getElementById('lastRefresh').textContent = new Date().toLocaleString();
+
+    const badge = document.getElementById('syncBadge');
+    badge.textContent = status;
+    badge.className   = 'badge ' + (
+        status === 'SUCCESS' ? 'badge-success' :
+        status === 'FAILED'  ? 'badge-error'   :
+        status === 'RUNNING' ? 'badge-warning'  : 'badge-pending'
+    );
+}
+
+// ─────────────────────────────────────────────
+// Countdown timer
+// ─────────────────────────────────────────────
+function resetCountdown() {
+    if (countdownTimer) clearInterval(countdownTimer);
+    countdown = REFRESH_INTERVAL;
+
+    countdownTimer = setInterval(() => {
+        countdown--;
+        const m = Math.floor(countdown / 60);
+        const s = countdown % 60;
+        document.getElementById('countdown').textContent =
+            `${m}:${String(s).padStart(2, '0')}`;
+
+        if (countdown <= 0) {
+            clearInterval(countdownTimer);
+            loadData(false);
+        }
+    }, 1000);
+}
+
+// ─────────────────────────────────────────────
+// CSV Export
+// ─────────────────────────────────────────────
+function exportCSV() {
+    if (!filteredData.length) { alert('No data to export.'); return; }
+
+    const cols = ['featureId','featureName','projectName','status','statusText',
+                  'priority','workstream','release','responsible','scopeName',
+                  'requirementName','date','week','counter'];
+
+    const lines = [cols.join(',')];
+    filteredData.forEach(r => {
+        lines.push(cols.map(c => `"${String(r[c] ?? '').replace(/"/g, '""')}"`).join(','));
+    });
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `FeatureAnalytic_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// ─────────────────────────────────────────────
+// Event Listeners
+// ─────────────────────────────────────────────
+document.getElementById('btnRefresh').addEventListener('click', () => loadData(true));
+document.getElementById('btnExport').addEventListener('click', exportCSV);
+document.getElementById('searchInput').addEventListener('input', applyFilters);
+document.getElementById('statusFilter').addEventListener('change', applyFilters);
+document.getElementById('priorityFilter').addEventListener('change', applyFilters);
+
+// ─────────────────────────────────────────────
+// Bootstrap
+// ─────────────────────────────────────────────
+loadData(true);
+</script>
+</body>
+</html>

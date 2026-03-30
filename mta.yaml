@@ -1,0 +1,83 @@
+_schema-version: "3.1"
+ID: datasphere-feature-analytic
+description: CAPM Application for SAP Datasphere Feature Analytic Integration
+version: 1.0.0
+
+modules:
+
+  # ── Backend CAPM Service ──────────────────────
+  - name: datasphere-capm-srv
+    type: nodejs
+    path: .
+    parameters:
+      buildpack: nodejs_buildpack
+      memory: 512M
+      disk-quota: 1024M
+    build-parameters:
+      builder: npm
+      ignore:
+        - node_modules/
+        - .env
+        - logs/
+    properties:
+      OAUTH_CLIENT_ID:      ~{datasphere-credentials/client-id}
+      OAUTH_CLIENT_SECRET:  ~{datasphere-credentials/client-secret}
+      OAUTH_TOKEN_URL:      ~{datasphere-credentials/token-url}
+      DATASPHERE_BASE_URL:  ~{datasphere-credentials/base-url}
+      DATASPHERE_API_PATH:  /api/v1/datasphere/consumption/analytical/RAM_SPACE/Feature_Analytic_ModelLive
+      REFRESH_INTERVAL_MS:  "300000"
+      NODE_ENV:             production
+      LOG_LEVEL:            info
+    requires:
+      - name: datasphere-xsuaa
+      - name: datasphere-credentials
+    provides:
+      - name: datasphere-capm-backend
+        properties:
+          url: ${default-url}
+
+  # ── App Router ────────────────────────────────
+  - name: datasphere-capm-approuter
+    type: approuter.nodejs
+    path: app
+    parameters:
+      memory: 256M
+      disk-quota: 512M
+    requires:
+      - name: datasphere-xsuaa
+      - name: datasphere-capm-backend
+        group: destinations
+        properties:
+          name:             datasphere-capm-backend
+          url:              ~{url}
+          forwardAuthToken: true
+
+resources:
+
+  # ── XSUAA ─────────────────────────────────────
+  - name: datasphere-xsuaa
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service:      xsuaa
+      service-plan: application
+      config:
+        xsappname:   datasphere-feature-analytic
+        tenant-mode: dedicated
+        scopes:
+          - name:        "$XSAPPNAME.read"
+            description: Read Feature Analytic Data
+        role-templates:
+          - name:        Viewer
+            description: View Feature Analytic Data
+            scope-references:
+              - "$XSAPPNAME.read"
+
+  # ── Datasphere Credentials (User-Provided) ────
+  - name: datasphere-credentials
+    type: org.cloudfoundry.user-provided-service
+    parameters:
+      credentials:
+        client-id:     "sb-8f59cd2f-4233-49be-96ad-856d84ec246a!b620034|client!b3650"
+        client-secret: "8f0c706b-c6c5-4e00-b453-70f3beb364d6$j7w1EQng_1f-KgI1NT0kIl5fHAObfQe1nidIY4Nu5s0="
+        token-url:     "https://mentorspooldsp.authentication.eu10.hana.ondemand.com/oauth/token"
+        base-url:      "https://mentorspooldsp.eu10.hcs.cloud.sap"
